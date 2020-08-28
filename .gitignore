@@ -1,2 +1,7 @@
 *.o
+*.exe
+*.dll
 sfml-labyrinthe
+makefile
+builds/
+releases/

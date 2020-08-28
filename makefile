@@ -1,8 +1,8 @@
 CC = g++
 CFLAGS = -Wall -std=c++17 -O3
-EXEC_NAME = sfml-test
+EXEC_NAME = sfml-labyrinthe
 INCLUDES = -I/usr/include/
-LIBS = -L/usr/lib/ -lsfml-system -lsfml-window -lsfml-graphics -lsfml-audio -lsfml-network
+LIBS = -L/usr/lib/ -lsfml-system -lsfml-window -lsfml-graphics
 OBJ_FILES = main.o
 INSTALL_DIR = /usr/bin
 

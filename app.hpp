@@ -30,6 +30,7 @@ public:
 	friend class Sprite;
 	friend class Square;
 	friend class SquareMatrix;
+	friend class Labyrinthe;
 
 protected:
 	std::vector<std::string> m_args;
@@ -54,7 +55,7 @@ App::App(int argc, char** argv):
 		sf::Style::Fullscreen
 	),
 	m_event(),
-	m_layers(3)
+	m_layers(1)
 {
 	// parse args
 	m_args.reserve(argc);
@@ -63,7 +64,8 @@ App::App(int argc, char** argv):
 	// setup window
 	m_window.setVerticalSyncEnabled(true);
 	// summon sprites
-	m_layers[0].insert(new Labyrinthe(sf::Vector2f(16, 16), sf::Vector2u(33, 33), sf::Vector2f(32, 32)));
+	int div = 4;
+	m_layers[0].insert(new Labyrinthe(sf::Vector2f(0, 0), sf::Vector2u(1920 / div, 1080 / div), sf::Vector2f(div, div)));
 }
 
 App::~App(void) {

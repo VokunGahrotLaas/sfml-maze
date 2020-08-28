@@ -149,6 +149,7 @@ public:
 	virtual void update(App& app);
 
 protected:
+	sf::Clock m_clock;
 	SquareMatrix m_matrix;
 	Random<sf::Uint8> m_rand_uint8;
 	Random<sf::Uint64> m_rand_uint64;
@@ -313,7 +314,8 @@ const SquareMatrix::Array& SquareMatrix::operator[](sf::Uint64 index) const {
 }
 
 Labyrinthe::Labyrinthe(sf::Vector2f pos, sf::Vector2u size, sf::Vector2f square_size):
-	m_matrix(pos, size, square_size, sf::Color::Black),
+	m_clock(),
+	m_matrix(pos, sf::Vector2u(size.x + (~size.x & 1), size.y + (~size.y & 1)), square_size, sf::Color::Black),
 	m_rand_uint8(),
 	m_rand_uint64(),
 	m_construct_complete(false),
@@ -365,11 +367,11 @@ void Labyrinthe::construct(void) {
 			if ((m_rand_uint64() & 1) == 1) {
 				sens = true;
 				x = m_rand_uint64() % (m_matrix.size() / 2 - 1) * 2 + 2;
-				y = m_rand_uint64() % (m_matrix.size() / 2) * 2 + 1;
+				y = m_rand_uint64() % (m_matrix[0].size() / 2) * 2 + 1;
 			} else {
 				sens = false;
 				x = m_rand_uint64() % (m_matrix.size() / 2) * 2 + 1;
-				y = m_rand_uint64() % (m_matrix.size() / 2 - 1) * 2 + 2;
+				y = m_rand_uint64() % (m_matrix[0].size() / 2 - 1) * 2 + 2;
 			}
 		}
 		if (sens) {
@@ -458,8 +460,15 @@ void Labyrinthe::pathfind2(void) {
 	}
 	m_pathfind_stack.push({i, j});
 	m_matrix[i][j].setColor(sf::Color::Red);
-	if (this->is_pathfind2_complete())
+	if (this->is_pathfind2_complete()) {
 		m_pathfind2_complete = true;
+		sf::Time t = m_clock.getElapsedTime();
+		std::cout
+			<< "Time elapsed: " << std::endl
+			<< "  " << t.asSeconds() << " s" << std::endl
+			<< "  " << t.asMilliseconds() << " ms" << std::endl
+			<< "  " << t.asMicroseconds() << " µs" << std::endl;
+	}
 }
 
 bool Labyrinthe::is_pathfind2_complete(void) {

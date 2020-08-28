@@ -1,6 +1,6 @@
 # sfml-labyrinthe
 C++ program which creates and solves a labyrinthe.\
-This project has been greatly inspired by [angeluriot](https://github.com/angeluriot)'s project [Maze solver](https://github.com/angeluriot/Maze_solver).\
+This project has been greatly inspired by [angeluriot](https://github.com/angeluriot)'s project [Maze solver](https://github.com/angeluriot/Maze_solver).
 
 ## Compilation
  * Install the [SFML](https://www.sfml-dev.org/download/sfml/2.5.1/) library.

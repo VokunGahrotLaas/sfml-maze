@@ -72,7 +72,10 @@ App::App(int argc, char** argv):
 	float tile_size = (float)screen_size.y / (float)(maze_size.y - 1);
 	maze_size.x = (float)screen_size.x / tile_size;
 	maze_size.x += (~maze_size.x & 1);
-	m_sprites.insert(new Maze(maze_size, tile_size));
+	float destroy = 0.01;
+	if (m_args.size() > 3)
+		destroy = std::stof(m_args[3]);
+	m_sprites.insert(new Maze(maze_size, tile_size, destroy));
 	std::cout
 		<< "usage: sfml-maze [<maze y size>=144] [<update max fps>=960]" << std::endl
 		<< "escape to quit" << std::endl
@@ -110,16 +113,30 @@ void App::update(void) {
 	float fps = 60 * 16;
 	if (m_args.size() > 2)
 		fps = std::stof(m_args[2]);
-	sf::Time spf = sf::seconds(1.0 / fps);
-	while (m_window.isOpen()) {
-		{
+	sf::Time spf;
+	if (fps > 0.0) {
+		spf = sf::seconds(1.0 / fps);
+		while (m_window.isOpen()) {
+			{
+				sf::Lock lock(m_sprites_mutex);
+				for (Sprite* sprite: m_sprites)
+					sprite->update();
+			}
+			if (clock.getElapsedTime() < spf)
+				sf::sleep(spf - clock.getElapsedTime());
+			clock.restart();
+		}
+	} else if (fps == 0.0) {
+		while (m_window.isOpen()) {
 			sf::Lock lock(m_sprites_mutex);
 			for (Sprite* sprite: m_sprites)
 				sprite->update();
 		}
-		if (clock.getElapsedTime() < spf)
-			sf::sleep(spf - clock.getElapsedTime());
-		clock.restart();
+	} else {
+		while (m_window.isOpen()) {
+			for (Sprite* sprite: m_sprites)
+				sprite->update();
+		}
 	}
 }
 

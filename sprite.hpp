@@ -69,7 +69,7 @@ class Maze: public Sprite {
 public:
 	using PathfindSet = std::unordered_set<std::pair<unsigned long, unsigned long>>;
 
-	Maze(sf::Vector2st size, float tile_size = 1);
+	Maze(sf::Vector2st size, float tile_size = 1, float destroy = 0.01);
 	~Maze(void) override = default;
 
 	void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
@@ -84,6 +84,7 @@ protected:
 	bool m_pathfind_complete;
 	bool m_pathfind2_complete;
 	PathfindSet m_pathfind_set;
+	float m_destroy;
 
 	void construct(void);
 	bool is_construct_complete(void) const;
@@ -205,7 +206,7 @@ const sf::Vector2st& SpriteMatrix<T>::getSize(void) const {
 	return m_size;
 }
 
-Maze::Maze(sf::Vector2st size, float tile_size):
+Maze::Maze(sf::Vector2st size, float tile_size, float destroy):
 	m_clock(),
 	m_matrix(size, sf::Vector2f(tile_size, tile_size)),
 	m_rand_u8(),
@@ -213,7 +214,8 @@ Maze::Maze(sf::Vector2st size, float tile_size):
 	m_construct_complete(false),
 	m_pathfind_complete(false),
 	m_pathfind2_complete(false),
-	m_pathfind_set()
+	m_pathfind_set(),
+	m_destroy(destroy)
 {
 	for (auto& array: m_matrix)
 		for (auto& tile: array)
@@ -380,7 +382,7 @@ void Maze::change_color(std::size_t x, std::size_t y, const sf::Color& new_color
 }
 
 void Maze::break_some_walls(void) {
-	unsigned long to_break = m_matrix.getSize().x * m_matrix.getSize().y / 100; // 1% of all tiles
+	unsigned long to_break = m_matrix.getSize().x * m_matrix.getSize().y * m_destroy; // 1% of all tiles
 	unsigned long x = 1, y = 1;
 	for (; to_break > 0; --to_break) {
 		x = 1;

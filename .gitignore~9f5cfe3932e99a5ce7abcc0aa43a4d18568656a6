@@ -1,7 +1,7 @@
 *.o
 *.exe
 *.dll
-sfml-maze
+sfml-labyrinthe
 makefile
 builds/
 releases/

@@ -382,7 +382,13 @@ void Maze::change_color(std::size_t x, std::size_t y, const sf::Color& new_color
 }
 
 void Maze::break_some_walls(void) {
-	unsigned long to_break = m_matrix.getSize().x * m_matrix.getSize().y * m_destroy; // 1% of all tiles
+	if (m_destroy < 0)
+		m_destroy = 0;
+	if (m_destroy > 1)
+		m_destroy = 1;
+	unsigned long to_break = (m_matrix.getSize().x / 2 - 1) * (m_matrix.getSize().y / 2 - 1);
+	to_break *= m_destroy;
+	std::cout << "extra walls broken: " << to_break << std::endl;
 	unsigned long x = 1, y = 1;
 	for (; to_break > 0; --to_break) {
 		x = 1;

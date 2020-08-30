@@ -75,14 +75,13 @@ App::App(int argc, char** argv):
 	float destroy = 0.01;
 	if (m_args.size() > 3)
 		destroy = std::stof(m_args[3]);
-	m_sprites.insert(new Maze(maze_size, tile_size, destroy));
 	std::cout
 		<< "usage: sfml-maze [<maze y size>=144] [<update max fps>=960]" << std::endl
-		<< "escape to quit" << std::endl
 		<< "advised sizes: [144, 240, 360, 432, 450, 480, 504, 540, 576, 648, 720, 768, 900, 1080]" << std::endl
 		<< "maze size: (" << maze_size.x << ", " << maze_size.y << ")" << std::endl
 		<< "tile size: " << tile_size << std::endl
-	<< std::endl;
+	;
+	m_sprites.insert(new Maze(maze_size, tile_size, destroy));
 }
 
 App::~App(void) {

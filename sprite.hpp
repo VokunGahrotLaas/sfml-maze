@@ -1,6 +1,7 @@
 // C++ std
+#include <cstddef>
+#include <cstdint>
 #include <iostream>
-#include <stack>
 #include <vector>
 #include <unordered_set>
 
@@ -10,175 +11,96 @@
 
 // this project
 #include "random.hpp"
-
-namespace app {
-
-sf::Uint64 color_to_int(const sf::Color& color) {
-	return (sf::Uint64(color.r) << 24)
-		| (sf::Uint64(color.g) << 16)
-		| (sf::Uint64(color.b) << 8)
-		| (sf::Uint64(color.a));
-}
-
-sf::Uint64 rgb_to_int(const sf::Color& color) {
-	return (sf::Uint64(color.r) << 16)
-		| (sf::Uint64(color.g) << 8)
-		| (sf::Uint64(color.b));
-}
-
-sf::Color int_to_color(const sf::Uint64& i) {
-	return sf::Color(
-		i >> 24,
-		i >> 16,
-		i >> 8,
-		i
-	);
-}
-
-sf::Color int_to_rgb(const sf::Uint64& i) {
-	return sf::Color(
-		i >> 16,
-		i >> 8,
-		i
-	);
-}
-
-template <class T>
-bool in_stack(const std::stack<T>& stack, const T& t) {
-	std::stack<T> tmp = stack;
-	while (!tmp.empty()) {
-		if (t == tmp.top())
-			return true;
-		tmp.pop();
-	}
-	return false;
-}
-
-} // namesapce app
-
-
-namespace std {
-
-template <>
-class hash<sf::Color> {
-public:
-	size_t operator()(const sf::Color& color) const {
-		return app::color_to_int(color);
-	}
-};
-
-} // namespace std
+#include "utils.hpp"
 
 
 
 namespace app {
 
-class App;
-
-class Sprite {
+class Sprite: public sf::Drawable, public sf::Transformable {
 public:
 	Sprite(void);
-	virtual ~Sprite(void);
+	~Sprite(void) override = default;
 
-	sf::Uint64 count(void) const;
+	unsigned long count(void) const;
+	virtual void update(void) = 0;
 
-	virtual void draw(App& app) = 0;
-	virtual void update(App& app) = 0;
+private:
+	unsigned long m_count;
 
-protected:
-	sf::Uint64 m_count;
-
-	static sf::Uint64 global_count;
+	static unsigned long global_count;
 };
 
-class Square: public Sprite {
+template <typename T>
+class SpriteMatrix: public Sprite {
 public:
-	Square(sf::Vector2f pos = sf::Vector2f(0, 0), sf::Vector2f size = sf::Vector2f(1, 1), sf::Color color = sf::Color::Black);
-	virtual ~Square(void);
+	using Array = typename std::vector<T>;
+	using Matrix = std::vector<Array>;
 
-	virtual void draw(App& app);
-	virtual void update(App& app);
+	template <typename... Args>
+	SpriteMatrix(sf::Vector2st size, Args&&... args);
+	~SpriteMatrix(void) override = default;
 
-	void setPosition(sf::Vector2f pos);
-	sf::Vector2f getPosition(void) const;
-	void setSize(sf::Vector2f size);
-	sf::Vector2f getSize(void) const;
-	void setColor(sf::Color color);
-	sf::Color getColor(void) const;
+	void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
+	void update(void) override;
 
-protected:
-	sf::RectangleShape m_shape;
-};
+	typename Matrix::iterator begin(void);
+	typename Matrix::const_iterator begin(void) const;
+	typename Matrix::const_iterator cbegin(void) const;
 
-class SquareMatrix: public Sprite {
-public:
-	using Matrix = std::vector<std::vector<Square>>;
-	using Array = std::vector<Square>;
+	typename Matrix::iterator end(void);
+	typename Matrix::const_iterator end(void) const;
+	typename Matrix::const_iterator cend(void) const;
 
-	SquareMatrix(sf::Vector2f pos = sf::Vector2f(0, 0), sf::Vector2u size = sf::Vector2u(1, 1), sf::Vector2f square_size = sf::Vector2f(1, 1), sf::Color square_color = sf::Color::Black);
-	virtual ~SquareMatrix(void);
+	Array& operator[](std::size_t index);
+	const Array& operator[](std::size_t index) const;
 
-	virtual void draw(App& app);
-	virtual void update(App& app);
+	Array& at(std::size_t index);
+	const Array& at(std::size_t index) const;
 
-	sf::Uint64 size(void) const;
-
-	Matrix::iterator begin(void);
-	Matrix::const_iterator begin(void) const;
-	Matrix::const_iterator cbegin(void) const;
-
-	Matrix::iterator end(void);
-	Matrix::const_iterator end(void) const;
-	Matrix::const_iterator cend(void) const;
-
-	Array& operator[](sf::Uint64 index);
-	const Array& operator[](sf::Uint64 index) const;
+	const sf::Vector2st& getSize(void) const;
 
 protected:
 	Matrix m_matrix;
+	sf::Vector2st m_size;
 };
 
-class Labyrinthe: public Sprite {
+class Maze: public Sprite {
 public:
-	using PathfindStack = std::stack<std::pair<sf::Uint64, sf::Uint64>>;
+	using PathfindSet = std::unordered_set<std::pair<unsigned long, unsigned long>>;
 
-	Labyrinthe(sf::Vector2f pos = sf::Vector2f(0, 0), sf::Vector2u size = sf::Vector2u(1, 1), sf::Vector2f square_size = sf::Vector2f(1, 1));
-	virtual ~Labyrinthe(void);
+	Maze(sf::Vector2st size, float tile_size = 1);
+	~Maze(void) override = default;
 
-	virtual void draw(App& app);
-	virtual void update(App& app);
+	void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
+	void update(void) override;
 
 protected:
 	sf::Clock m_clock;
-	SquareMatrix m_matrix;
-	Random<sf::Uint8> m_rand_uint8;
-	Random<sf::Uint64> m_rand_uint64;
+	SpriteMatrix<sf::RectangleShape> m_matrix;
+	Random<sf::Uint8> m_rand_u8;
+	Random<unsigned long> m_rand_ul;
 	bool m_construct_complete;
 	bool m_pathfind_complete;
 	bool m_pathfind2_complete;
-	sf::Color m_pathfind_color;
-	sf::Uint64 m_pathfind_counter;
-	PathfindStack m_pathfind_stack;
+	PathfindSet m_pathfind_set;
 
 	void construct(void);
-	bool is_construct_complete(void);
+	bool is_construct_complete(void) const;
 	void pathfind(void);
-	bool is_pathfind_complete(void);
+	bool is_pathfind_complete(void) const;
 	void pathfind2(void);
-	bool is_pathfind2_complete(void);
+	bool is_pathfind2_complete(void) const;
 
-	void change_color(sf::Uint64 x, sf::Uint64 y, sf::Color new_color);
-	void pathfind_square(sf::Uint64 x, sf::Uint64 y, sf::Uint64 val);
-	bool pathfind2_square(sf::Uint64 x, sf::Uint64 y, sf::Uint64 val = -1);
+	void change_color(std::size_t x, std::size_t y, const sf::Color& new_color);
+	void break_some_walls(void);
+	void pathfind_square(std::size_t x, std::size_t y, unsigned long val);
+	bool pathfind2_square(std::size_t x, std::size_t y, unsigned long val = -1);
 };
 
 } // namespace app
 
 
-
-
-// this project
-#include "app.hpp"
 
 namespace app {
 
@@ -188,165 +110,134 @@ Sprite::Sprite(void):
 	//
 }
 
-Sprite::~Sprite(void) {
-	//
-}
-
-sf::Uint64 Sprite::count(void) const {
+unsigned long Sprite::count(void) const {
 	return m_count;
 }
 
-sf::Uint64 Sprite::global_count = 0;
+unsigned long Sprite::global_count = 0;
 
 
 
-Square::Square(sf::Vector2f pos, sf::Vector2f size, sf::Color color):
+template <typename T>
+template <typename... Args>
+SpriteMatrix<T>::SpriteMatrix(sf::Vector2st size, Args&&... args):
 	Sprite(),
-	m_shape()
+	m_matrix(),
+	m_size(size)
 {
-	m_shape.setPosition(pos);
-	m_shape.setSize(size);
-	m_shape.setFillColor(color);
-}
-
-Square::~Square(void) {
-	//
-}
-
-void Square::update(App& app) {
-	//
-}
-
-void Square::draw(App& app) {
-	app.m_window.draw(m_shape);
-}
-
-void Square::setPosition(sf::Vector2f pos) {
-	m_shape.setPosition(pos);
-}
-
-sf::Vector2f Square::getPosition(void) const {
-	return m_shape.getPosition();
-}
-
-void Square::setSize(sf::Vector2f size) {
-	m_shape.setSize(size);
-}
-
-sf::Vector2f Square::getSize(void) const {
-	return m_shape.getSize();
-}
-
-void Square::setColor(sf::Color color) {
-	m_shape.setFillColor(color);
-}
-
-sf::Color Square::getColor(void) const {
-	return m_shape.getFillColor();
-}
-
-SquareMatrix::SquareMatrix(sf::Vector2f pos, sf::Vector2u size, sf::Vector2f square_size, sf::Color square_color):
-	Sprite(),
-	m_matrix()
-{
-	const Square ref(pos, square_size, square_color);
-	m_matrix.resize(size.x, Array());
-	for (Array& subarray: m_matrix)
-		subarray.resize(size.y, ref);
-	for (sf::Uint64 x = 0; x < m_matrix.size(); ++x)
-		for (sf::Uint64 y = 0; y < m_matrix[x].size(); ++y)
-			m_matrix[x][y].setPosition(sf::Vector2f(
-				pos.x + x * square_size.x,
-				pos.y + y * square_size.y
-			));
-}
-
-SquareMatrix::~SquareMatrix(void) {
-	//
-}
-
-void SquareMatrix::draw(App& app) {
+	const T ref(args...);
+	m_matrix.resize(m_size.x);
 	for (Array& array: m_matrix)
-		for (Square& square: array)
-			square.draw(app);
+		array.resize(m_size.y, ref);
+	for (std::size_t x = 0; x < m_size.x; ++x)
+		for (std::size_t y = 0; y < m_size.y; ++y)
+			m_matrix[x][y].move(
+				x * m_matrix[x][y].getSize().x,
+				y * m_matrix[x][y].getSize().y
+			);
 }
 
-void SquareMatrix::update(App& app) {
-	for (Array& array: m_matrix)
-		for (Square& square: array)
-			square.update(app);
+template <typename T>
+void SpriteMatrix<T>::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+	states.transform *= this->getTransform();
+	for (const Array& array: m_matrix)
+		for (const T& sprite: array)
+			target.draw(sprite, states);
 }
 
-sf::Uint64 SquareMatrix::size(void) const {
-	return m_matrix.size();
+template <typename T>
+void SpriteMatrix<T>::update(void) {
+	//
 }
 
-SquareMatrix::Matrix::iterator SquareMatrix::begin(void) {
+template <typename T>
+typename SpriteMatrix<T>::Matrix::iterator SpriteMatrix<T>::begin(void) {
 	return m_matrix.begin();
 }
 
-SquareMatrix::Matrix::const_iterator SquareMatrix::begin(void) const {
-	return m_matrix.begin();
-}
-
-SquareMatrix::Matrix::const_iterator SquareMatrix::cbegin(void) const {
+template <typename T>
+typename SpriteMatrix<T>::Matrix::const_iterator SpriteMatrix<T>::begin(void) const {
 	return m_matrix.cbegin();
 }
 
-SquareMatrix::Matrix::iterator SquareMatrix::end(void) {
+template <typename T>
+typename SpriteMatrix<T>::Matrix::const_iterator SpriteMatrix<T>::cbegin(void) const {
+	return m_matrix.cbegin();
+}
+
+template <typename T>
+typename SpriteMatrix<T>::Matrix::iterator SpriteMatrix<T>::end(void) {
 	return m_matrix.end();
 }
 
-SquareMatrix::Matrix::const_iterator SquareMatrix::end(void) const {
-	return m_matrix.end();
-}
-
-SquareMatrix::Matrix::const_iterator SquareMatrix::cend(void) const {
+template <typename T>
+typename SpriteMatrix<T>::Matrix::const_iterator SpriteMatrix<T>::end(void) const {
 	return m_matrix.cend();
 }
 
-SquareMatrix::Array& SquareMatrix::operator[](sf::Uint64 index) {
+template <typename T>
+typename SpriteMatrix<T>::Matrix::const_iterator SpriteMatrix<T>::cend(void) const {
+	return m_matrix.cend();
+}
+
+template <typename T>
+typename SpriteMatrix<T>::Array& SpriteMatrix<T>::operator[](std::size_t index) {
 	return m_matrix[index];
 }
 
-const SquareMatrix::Array& SquareMatrix::operator[](sf::Uint64 index) const {
+template <typename T>
+const typename SpriteMatrix<T>::Array& SpriteMatrix<T>::operator[](std::size_t index) const {
 	return m_matrix[index];
 }
 
-Labyrinthe::Labyrinthe(sf::Vector2f pos, sf::Vector2u size, sf::Vector2f square_size):
+template <typename T>
+typename SpriteMatrix<T>::Array& SpriteMatrix<T>::at(std::size_t index) {
+	return m_matrix.at(index);
+}
+
+template <typename T>
+const typename SpriteMatrix<T>::Array& SpriteMatrix<T>::at(std::size_t index) const {
+	return m_matrix.at(index);
+}
+
+template <typename T>
+const sf::Vector2st& SpriteMatrix<T>::getSize(void) const {
+	return m_size;
+}
+
+Maze::Maze(sf::Vector2st size, float tile_size):
 	m_clock(),
-	m_matrix(pos, sf::Vector2u(size.x + (~size.x & 1), size.y + (~size.y & 1)), square_size, sf::Color::Black),
-	m_rand_uint8(),
-	m_rand_uint64(),
+	m_matrix(size, sf::Vector2f(tile_size, tile_size)),
+	m_rand_u8(),
+	m_rand_ul(),
 	m_construct_complete(false),
 	m_pathfind_complete(false),
 	m_pathfind2_complete(false),
-	m_pathfind_stack()
+	m_pathfind_set()
 {
-	std::unordered_set<sf::Color> set;
-	set.insert(sf::Color::Black);
-	set.insert(sf::Color::White);
-	for (sf::Uint64 x = 1; x < m_matrix.size(); x += 2) {
-		for (sf::Uint64 y = 1; y < m_matrix[x].size(); y += 2) {
+	for (auto& array: m_matrix)
+		for (auto& tile: array)
+			tile.setFillColor(sf::Color::Black);
+	std::unordered_set<sf::Color> already_used;
+	already_used.insert(sf::Color::Black);
+	already_used.insert(sf::Color::White);
+	for (std::size_t x = 1; x < m_matrix.getSize().x; x += 2) {
+		for (std::size_t y = 1; y < m_matrix.getSize().y; y += 2) {
 			sf::Color color = sf::Color::Black;
-			while (set.count(color) == 1)
-				color = sf::Color(m_rand_uint8(), m_rand_uint8(), m_rand_uint8());
-			m_matrix[x][y].setColor(color);
-			set.insert(color);
+			while (already_used.count(color) == 1)
+				color = sf::Color(m_rand_u8(), m_rand_u8(), m_rand_u8());
+			m_matrix[x][y].setFillColor(color);
+			already_used.insert(color);
 		}
 	}
 }
 
-Labyrinthe::~Labyrinthe(void) {
-	//
+void Maze::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+	states.transform *= this->getTransform();
+	target.draw(m_matrix, states);
 }
 
-void Labyrinthe::draw(App& app) {
-	m_matrix.draw(app);
-}
-
-void Labyrinthe::update(App& app) {
-	m_matrix.update(app);
+void Maze::update(void) {
 	if (!this->is_construct_complete()) {
 		this->construct();
 	} else if (!this->is_pathfind_complete()) {
@@ -356,110 +247,110 @@ void Labyrinthe::update(App& app) {
 	}
 }
 
-void Labyrinthe::construct(void) {
+void Maze::construct(void) {
 	sf::Color old_color = sf::Color::Black, new_color = sf::Color::Black;
-	sf::Uint64 x = 1, y = 1;
+	unsigned long x = 1, y = 1;
 	bool sens = false;
 	while (old_color == new_color) {
 		x = 1;
 		y = 1;
-		while (m_matrix[x][y].getColor() != sf::Color::Black) {
-			if ((m_rand_uint64() & 1) == 1) {
+		while (m_matrix[x][y].getFillColor() != sf::Color::Black) {
+			if ((m_rand_u8() & 1) == 1) {
 				sens = true;
-				x = m_rand_uint64() % (m_matrix.size() / 2 - 1) * 2 + 2;
-				y = m_rand_uint64() % (m_matrix[0].size() / 2) * 2 + 1;
+				x = m_rand_ul() % (m_matrix.getSize().x / 2 - 1) * 2 + 2;
+				y = m_rand_ul() % (m_matrix.getSize().y / 2) * 2 + 1;
 			} else {
 				sens = false;
-				x = m_rand_uint64() % (m_matrix.size() / 2) * 2 + 1;
-				y = m_rand_uint64() % (m_matrix[0].size() / 2 - 1) * 2 + 2;
+				x = m_rand_ul() % (m_matrix.getSize().x / 2) * 2 + 1;
+				y = m_rand_ul() % (m_matrix.getSize().y / 2 - 1) * 2 + 2;
 			}
 		}
 		if (sens) {
-			old_color = m_matrix[x - 1][y].getColor();
-			new_color = m_matrix[x + 1][y].getColor();
+			old_color = m_matrix[x - 1][y].getFillColor();
+			new_color = m_matrix[x + 1][y].getFillColor();
 		} else {
-			old_color = m_matrix[x][y - 1].getColor();
-			new_color = m_matrix[x][y + 1].getColor();
+			old_color = m_matrix[x][y - 1].getFillColor();
+			new_color = m_matrix[x][y + 1].getFillColor();
 		}
 	}
-	m_matrix[x][y].setColor(new_color);
+	m_matrix[x][y].setFillColor(new_color);
 	if (sens)
 		this->change_color(x - 1, y, new_color);
 	else
 		this->change_color(x, y - 1, new_color);
 	if (this->is_construct_complete()) {
+		this->break_some_walls();
 		m_construct_complete = true;
 		this->change_color(1, 1, int_to_color(-1));
-		m_matrix[0][1].setColor(sf::Color::White);
-		m_matrix[m_matrix.size() - 1][m_matrix[0].size() - 2].setColor(sf::Color(64, 128, 0));
-		m_pathfind_stack.push({m_matrix.size() - 1, m_matrix[0].size() - 2});
+		m_matrix[0][1].setFillColor(sf::Color::White);
+		m_matrix[m_matrix.getSize().x - 1][m_matrix.getSize().y - 2].setFillColor(sf::Color(64, 128, 0));
+		m_pathfind_set.insert({m_matrix.getSize().x - 1, m_matrix.getSize().y - 2});
 	}
 }
 
-bool Labyrinthe::is_construct_complete(void) {
+bool Maze::is_construct_complete(void) const {
 	if (m_construct_complete)
 		return true;
-	sf::Color color = m_matrix[1][1].getColor();
-	for (SquareMatrix::Array& array: m_matrix)
-		for (Square& square: array)
-			if (square.getColor() != color && square.getColor() != sf::Color::Black)
+	sf::Color color = m_matrix[1][1].getFillColor();
+	for (auto& array: m_matrix)
+		for (auto& tile: array)
+			if (tile.getFillColor() != color && tile.getFillColor() != sf::Color::Black)
 				return false;
 	return true;
 }
 
-void Labyrinthe::pathfind(void) {
-	PathfindStack stack;
-	m_pathfind_stack.swap(stack);
-	while (!stack.empty()) {
-		sf::Uint64 x = stack.top().first, y = stack.top().second;
-		sf::Uint64 val = rgb_to_int(m_matrix[x][y].getColor()) + 1;
+void Maze::pathfind(void) {
+	PathfindSet set;
+	m_pathfind_set.swap(set);
+	for (auto& pair: set) {
+		std::size_t x = pair.first, y = pair.second;
+		unsigned long val = rgb_to_int(m_matrix[x][y].getFillColor()) + 1;
 		this->pathfind_square(x - 1, y, val);
 		this->pathfind_square(x + 1, y, val);
 		this->pathfind_square(x, y - 1, val);
 		this->pathfind_square(x, y + 1, val);
-		stack.pop();
 	}
 	if (this->is_pathfind_complete()) {
 		m_pathfind_complete = true;
-		while (!m_pathfind_stack.empty())
-			m_pathfind_stack.pop();
-		m_pathfind_stack.push({0, 1});
-		m_matrix[0][1].setColor(sf::Color::Red);
+		m_pathfind_set.clear();
+		m_pathfind_set.insert({0, 1});
+		m_matrix[0][1].setFillColor(sf::Color::Red);
 	}
 }
 
-bool Labyrinthe::is_pathfind_complete(void) {
+bool Maze::is_pathfind_complete(void) const {
 	if (m_pathfind_complete)
 		return true;
-	return m_matrix[0][1].getColor() != sf::Color::White;
+	return m_matrix[0][1].getFillColor() != sf::Color::White;
 }
 
-void Labyrinthe::pathfind2(void) {
-	sf::Uint64 x = m_pathfind_stack.top().first, y = m_pathfind_stack.top().second;
-	m_pathfind_stack.pop();
-	sf::Uint64 i = 0, j = 0, val = -1;
+void Maze::pathfind2(void) {
+	std::size_t x = m_pathfind_set.begin()->first, y = m_pathfind_set.begin()->second;
+	m_pathfind_set.erase({x, y});
+	std::size_t i = 0, j = 0;
+	unsigned long val = -1;
 	if (pathfind2_square(x - 1, y, val)) {
 		i = x - 1;
 		j = y;
-		val = rgb_to_int(m_matrix[i][j].getColor());
+		val = rgb_to_int(m_matrix[i][j].getFillColor());
 	}
 	if (pathfind2_square(x + 1, y, val)) {
 		i = x + 1;
 		j = y;
-		val = rgb_to_int(m_matrix[i][j].getColor());
+		val = rgb_to_int(m_matrix[i][j].getFillColor());
 	}
 	if (pathfind2_square(x, y - 1, val)) {
 		i = x;
 		j = y - 1;
-		val = rgb_to_int(m_matrix[i][j].getColor());
+		val = rgb_to_int(m_matrix[i][j].getFillColor());
 	}
 	if (pathfind2_square(x, y + 1, val)) {
 		i = x;
 		j = y + 1;
-		val = rgb_to_int(m_matrix[i][j].getColor());
+		val = rgb_to_int(m_matrix[i][j].getFillColor());
 	}
-	m_pathfind_stack.push({i, j});
-	m_matrix[i][j].setColor(sf::Color::Red);
+	m_pathfind_set.insert({i, j});
+	m_matrix[i][j].setFillColor(sf::Color::Red);
 	if (this->is_pathfind2_complete()) {
 		m_pathfind2_complete = true;
 		sf::Time t = m_clock.getElapsedTime();
@@ -471,45 +362,64 @@ void Labyrinthe::pathfind2(void) {
 	}
 }
 
-bool Labyrinthe::is_pathfind2_complete(void) {
+bool Maze::is_pathfind2_complete(void) const {
 	if (m_pathfind2_complete)
 		return true;
-	return m_pathfind_stack.top().first == m_matrix.size() - 1 && m_pathfind_stack.top().second == m_matrix[0].size() - 2;
+	return m_pathfind_set.count({m_matrix.getSize().x - 1, m_matrix.getSize().y - 2}) == 1;
 }
 
-void Labyrinthe::change_color(sf::Uint64 x, sf::Uint64 y, sf::Color new_color) {
-	sf::Color old_color = m_matrix[x][y].getColor();
+void Maze::change_color(std::size_t x, std::size_t y, const sf::Color& new_color) {
+	sf::Color old_color = m_matrix[x][y].getFillColor();
 	if (old_color == new_color || old_color == sf::Color::Black)
 		return;
-	m_matrix[x][y].setColor(new_color);
+	m_matrix[x][y].setFillColor(new_color);
 	this->change_color(x - 1, y, new_color);
 	this->change_color(x + 1, y, new_color);
 	this->change_color(x, y - 1, new_color);
 	this->change_color(x, y + 1, new_color);
 }
 
-void Labyrinthe::pathfind_square(sf::Uint64 x, sf::Uint64 y, sf::Uint64 val) {
-	if (0 > x || x >= m_matrix.size())
-		return;
-	if (0 > y || y >= m_matrix[x].size())
-		return;
-	if (m_matrix[x][y].getColor() == sf::Color::Black)
-		return;
-	if (rgb_to_int(m_matrix[x][y].getColor()) <= val)
-		return;
-	m_matrix[x][y].setColor(int_to_rgb(val));
-	if (in_stack(m_pathfind_stack, {x, y}) == 0)
-		m_pathfind_stack.push({x, y});
+void Maze::break_some_walls(void) {
+	unsigned long to_break = m_matrix.getSize().x * m_matrix.getSize().y / 100; // 1% of all tiles
+	unsigned long x = 1, y = 1;
+	for (; to_break > 0; --to_break) {
+		x = 1;
+		y = 1;
+		while (m_matrix[x][y].getFillColor() != sf::Color::Black) {
+			if ((m_rand_u8() & 1) == 1) {
+				x = m_rand_ul() % (m_matrix.getSize().x / 2 - 1) * 2 + 2;
+				y = m_rand_ul() % (m_matrix.getSize().y / 2) * 2 + 1;
+			} else {
+				x = m_rand_ul() % (m_matrix.getSize().x / 2) * 2 + 1;
+				y = m_rand_ul() % (m_matrix.getSize().y / 2 - 1) * 2 + 2;
+			}
+		}
+		m_matrix[x][y].setFillColor(sf::Color::White);
+	}
 }
 
-bool Labyrinthe::pathfind2_square(sf::Uint64 x, sf::Uint64 y, sf::Uint64 val) {
-	if (0 > x || x >= m_matrix.size())
+void Maze::pathfind_square(std::size_t x, std::size_t y, unsigned long val) {
+	if (0 > x || x >= m_matrix.getSize().x)
+		return;
+	if (0 > y || y >= m_matrix.getSize().y)
+		return;
+	if (m_matrix[x][y].getFillColor() == sf::Color::Black)
+		return;
+	if (rgb_to_int(m_matrix[x][y].getFillColor()) <= val)
+		return;
+	m_matrix[x][y].setFillColor(int_to_rgb(val));
+	if (m_pathfind_set.count({x, y}) == 0)
+		m_pathfind_set.insert({x, y});
+}
+
+bool Maze::pathfind2_square(std::size_t x, std::size_t y, unsigned long val) {
+	if (0 > x || x >= m_matrix.getSize().x)
 		return false;
-	if (0 > y || y >= m_matrix[x].size())
+	if (0 > y || y >= m_matrix.getSize().y)
 		return false;
-	if (m_matrix[x][y].getColor() == sf::Color::Black)
+	if (m_matrix[x][y].getFillColor() == sf::Color::Black)
 		return false;
-	if (rgb_to_int(m_matrix[x][y].getColor()) > val)
+	if (rgb_to_int(m_matrix[x][y].getFillColor()) > val)
 		return false;
 	return true;
 }
@@ -528,27 +438,19 @@ public:
 	}
 };
 
-template <>
-class hash<app::Square> {
+template <typename T>
+class hash<app::SpriteMatrix<T>> {
 public:
-	size_t operator()(const app::Square& square) const {
-		return square.count();
-	}
-};
-
-template <>
-class hash<app::SquareMatrix> {
-public:
-	size_t operator()(const app::SquareMatrix& matrix) const {
+	size_t operator()(const app::SpriteMatrix<T>& matrix) const {
 		return matrix.count();
 	}
 };
 
 template <>
-class hash<app::Labyrinthe> {
+class hash<app::Maze> {
 public:
-	size_t operator()(const app::Labyrinthe& labyrinthe) const {
-		return labyrinthe.count();
+	size_t operator()(const app::Maze& maze) const {
+		return maze.count();
 	}
 };
 

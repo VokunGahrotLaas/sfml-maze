@@ -5,21 +5,23 @@
 #include <string>
 #include <vector>
 #include <unordered_set>
-#include <queue>
+#include <algorithm>
 
 // SFML
 #include <SFML/System.hpp>
 #include <SFML/Graphics.hpp>
 
+// this project
+#include "sprite.hpp"
+#include "utils.hpp"
+
 namespace app {
-
-class Sprite;
-
-using Layer = std::unordered_set<Sprite*>;
 
 class App {
 public:
-	App(int argc, char** argv);
+	using SpriteSet = std::unordered_set<Sprite*>;
+
+	App(int argc = 0, char** argv = nullptr);
 	virtual ~App(void);
 
 	void start(void);
@@ -27,23 +29,19 @@ public:
 	void update(void);
 	void draw(void);
 
-	friend class Sprite;
-	friend class Square;
-	friend class SquareMatrix;
-	friend class Labyrinthe;
-
 protected:
 	std::vector<std::string> m_args;
 	sf::RenderWindow m_window;
 	sf::Event m_event;
-	std::vector<Layer> m_layers;
+	SpriteSet m_sprites;
+	sf::Thread m_update_thread;
+	sf::Mutex m_sprites_mutex;
+	float m_update_fps;
 };
 
 } // namesapce app
 
 
-
-#include "sprite.hpp"
 
 namespace app {
 
@@ -55,7 +53,9 @@ App::App(int argc, char** argv):
 		sf::Style::Fullscreen
 	),
 	m_event(),
-	m_layers(1)
+	m_sprites(),
+	m_update_thread(&App::update, this),
+	m_sprites_mutex()
 {
 	// parse args
 	m_args.reserve(argc);
@@ -63,45 +63,73 @@ App::App(int argc, char** argv):
 		m_args.push_back(argv[i]);
 	// setup window
 	m_window.setVerticalSyncEnabled(true);
-	// summon sprites
-	int div = 4;
-	m_layers[0].insert(new Labyrinthe(sf::Vector2f(0, 0), sf::Vector2u(1920 / div, 1080 / div), sf::Vector2f(div, div)));
+	// create sprites
+	sf::Vector2u screen_size = m_window.getSize();
+	sf::Vector2st maze_size(256, 144);
+	if (m_args.size() > 1)
+		maze_size.y = std::stoul(m_args[1]);
+	maze_size.y += (~maze_size.y & 1);
+	float tile_size = (float)screen_size.y / (float)(maze_size.y - 1);
+	maze_size.x = (float)screen_size.x / tile_size;
+	maze_size.x += (~maze_size.x & 1);
+	m_sprites.insert(new Maze(maze_size, tile_size));
+	std::cout
+		<< "usage: sfml-maze [<maze y size>=144] [<update max fps>=960]" << std::endl
+		<< "escape to quit" << std::endl
+		<< "advised sizes: [144, 240, 360, 432, 450, 480, 504, 540, 576, 648, 720, 768, 900, 1080]" << std::endl
+		<< "maze size: (" << maze_size.x << ", " << maze_size.y << ")" << std::endl
+		<< "tile size: " << tile_size << std::endl
+	<< std::endl;
 }
 
 App::~App(void) {
-	for (Layer& layer: m_layers)
-		for (Sprite* sprite: layer)
-			if (sprite != nullptr)
-				delete sprite;
+	for (Sprite* sprite: m_sprites)
+		delete sprite;
 }
 
 void App::start(void) {
+	m_update_thread.launch();
 	while (m_window.isOpen()) {
 		this->event();
-		this->update();
 		this->draw();
-		//sf::sleep(sf::seconds(0.1));
 	}
+	m_update_thread.wait();
 }
 
 void App::event(void) {
 	while (m_window.pollEvent(m_event)) {
 		if (m_event.type == sf::Event::Closed)
 			m_window.close();
+		if (m_event.type == sf::Event::KeyPressed && m_event.key.code == sf::Keyboard::Escape)
+			m_window.close();
 	}
 }
 
 void App::update(void) {
-	for (Layer& layer: m_layers)
-		for (Sprite* sprite: layer)
-			sprite->update(*this);
+	sf::Clock clock;
+	float fps = 60 * 16;
+	if (m_args.size() > 2)
+		fps = std::stof(m_args[2]);
+	sf::Time spf = sf::seconds(1.0 / fps);
+	while (m_window.isOpen()) {
+		{
+			sf::Lock lock(m_sprites_mutex);
+			for (Sprite* sprite: m_sprites)
+				sprite->update();
+		}
+		if (clock.getElapsedTime() < spf)
+			sf::sleep(spf - clock.getElapsedTime());
+		clock.restart();
+	}
 }
 
 void App::draw(void) {
 	m_window.clear(sf::Color::White);
-	for (Layer& layer: m_layers)
-		for (Sprite* sprite: layer)
-		       sprite->draw(*this);	
+	{
+		sf::Lock lock(m_sprites_mutex);
+			for (Sprite* sprite: m_sprites)
+				m_window.draw(*sprite);
+	}
 	m_window.display();
 }
 

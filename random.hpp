@@ -1,18 +1,17 @@
-#ifndef RANDOM_HPP
-#define RANDOM_HPP
+#ifndef APP_RANDOM_HPP
+#define APP_RANDOM_HPP
 
 // C++ std
 #include <random>
-
-#include <SFML/System.hpp>
+#include <ctime>
 
 namespace app {
 
-template <class T, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max()>
+template <typename T, T min = std::numeric_limits<T>::min(), T max = std::numeric_limits<T>::max()>
 class Random {
 public:
 	Random(void);
-	virtual ~Random(void);
+	virtual ~Random(void) = default;
 
 	T operator()(void);
 
@@ -25,27 +24,21 @@ protected:
 
 
 
-
 namespace app {
 
-template <class T, T min, T max>
+template <typename T, T min, T max>
 Random<T, min, max>::Random(void):
-	m_gen(std::random_device()()),
+	m_gen(std::time(nullptr)), // std::random_device()() not working on my side
 	m_distrib(min, max)
 {
 	//
 }
 
-template <class T, T min, T max>
-Random<T, min, max>::~Random(void) {
-	//
-}
-
-template <class T, T min, T max>
+template <typename T, T min, T max>
 T Random<T, min, max>::operator()(void) {
 	return m_distrib(m_gen);
 }
 
 } // namespace app
 
-#endif // RANDOM_HPP
+#endif // APP_RANDOM_HPP
